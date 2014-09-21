@@ -1,0 +1,52 @@
+---
+title: "Practical Machine Learning Project"
+output: html_document
+---
+
+I start by reading in the data and looking at the data summary:
+```{r}
+library(caret)
+library(randomForest)
+data.train <- read.table(file='./pml-training.csv', sep=',', header=TRUE, na.strings = c("NA", "#DIV/0!"))
+summary(data.train)
+```
+
+The first five variables are concerned with time of measurement or the person who conducted the exercise, and therefore, I remove from the analysis.
+Furthermore, there are many variables that have a majority of `NA` and therefore will influence the models I will be fitting. These are removed as well. Furthermore, I exclude variables with near zero variance to generate my final dataset.
+
+```{r}
+# remove vars with many NA's
+nzv <- nearZeroVar(data.train)
+lots.of.na <- c(12, 13, 15, 16, 
+                18:25, 27:36, 50, 69:74, 76, 77, 80, 83, 87, 88, 90, 91, 
+                93:100, 103:112, 125,126,128,129,132,133,135,136,138,141)
+training <- data.train[, -union(union(1:5, nzv), lots.of.na)]
+```
+
+
+I then partition the dataset into five folds for 5-fold cross validation:
+```{r}
+set.seed(7551)
+folds <- createFolds(training$classe, k=5, list=TRUE, returnTrain = TRUE)
+```
+
+I then use cross-validated random forests to estimate the performance of my model:
+```{r}
+set.seed(7552)
+x <- folds[[1]]
+accuracies.5.k.cv <- sapply(folds, function(x) {
+    rF.model1 <- randomForest(classe ~ ., data=training[x, ], do.trace = FALSE)
+    rf.predictions1 <- predict(rF.model1, training[-x, ])
+    conf.matrix1 <- confusionMatrix(rf.predictions1, training$classe[-x])
+    conf.matrix1$overall[1]
+})
+```
+
+The out-of-sample error is estimated from the mean of the accuracy of the five cross-validated runs of the random forest:
+
+```{r}
+mean(accuracies.5.k.cv)
+```
+
+The accuracy is high (0.998) which goes in line with the experience that random forests generally have a high performance.
+
